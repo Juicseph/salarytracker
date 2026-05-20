@@ -1245,7 +1245,7 @@ function renderList() {
       const txTime = store.textTimes && store.textTimes[r.name] ? store.textTimes[r.name] : '';
       const txSent = store.textSent && store.textSent[r.name];
       const textBadge = (txDate && txTime) ? `<span class="r-text-badge${txSent?' sent':''}">&#128172; ${fmtDate(txDate)} ${txTime}${txSent?' ✓':''}</span>` : '';
-      const dobAge = store.dobs&&store.dobs[r.name] ? `<span style="font-size:9px;color:#3a5a7c;font-weight:600;padding:1px 4px">${calcAge(store.dobs[r.name])}</span>` : '';
+      const dobAge = store.dobs&&store.dobs[r.name] ? `<span class="dob-age" style="font-size:9px;color:#3a5a7c;font-weight:600;padding:1px 4px">${calcAge(store.dobs[r.name])}</span>` : '';
       const timeBadge = ct ? `<span class="r-time-badge" id="tbadge_${esc(r.name)}">&#128336; ${ct}</span>` : `<span class="r-time-badge" id="tbadge_${esc(r.name)}" style="display:none"></span>`;
       const dateBadge = cd ? `<span class="r-date-badge">&#128197; ${fmtDate(cd)}</span>` : '';
       const tzBadge = ct ? getTZBadge(r, ct) : '';
@@ -1284,8 +1284,8 @@ function renderList() {
           </select>
           <div class="field-label">Date of Birth</div>
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="date" class="ctrl-date" value="${store.dobs&&store.dobs[r.name]||''}" onchange="saveDob('${nm}',this.value)" style="flex:1;color:#c0b8b0">
-            ${store.dobs&&store.dobs[r.name]?`<span style="font-size:11px;color:#5aabff;white-space:nowrap;flex-shrink:0">${calcAge(store.dobs[r.name])}</span>`:''}
+            <input type="date" class="ctrl-date" value="${store.dobs&&store.dobs[r.name]||''}" onblur="saveDob('${nm}',this.value)" style="flex:1;color:#c0b8b0">
+            ${store.dobs&&store.dobs[r.name]?`<span class="dob-age-display" style="font-size:11px;color:#5aabff;white-space:nowrap;flex-shrink:0">${calcAge(store.dobs[r.name])}</span>`:''}
           </div>
           <div class="field-label">Who is Calling</div>
           <select class="caller-select" onchange="setCaller('${nm}',this.value)">${callerOpts}</select>
@@ -1556,10 +1556,33 @@ function setNote(name, val){ store.notes[name] = val; saveStore(); }
 function setPos(name, val) { if(val) store.positions[name]=val; else delete store.positions[name]; saveStore(); reRender(name); }
 function setCDate(name,val){ store.callDates[name]=val; saveStore(); reRender(name); }
 function saveDob(name, val) {
+  if (!val) return;
   if (!store.dobs) store.dobs = {};
   store.dobs[name] = val;
   saveStore();
-  reRender(name);
+  // Update age display in-place — no full reRender
+  const idKey = esc(name);
+  const card = document.getElementById('item_' + idKey);
+  if (card) {
+    // Update age badge in name row
+    const nameRow = card.querySelector('.r-name');
+    if (nameRow) {
+      const existing = nameRow.querySelector('.dob-age');
+      const ageStr = calcAge(val);
+      if (existing) {
+        existing.textContent = ageStr;
+      } else {
+        const span = document.createElement('span');
+        span.className = 'dob-age';
+        span.style.cssText = 'font-size:9px;color:#3a5a7c;font-weight:600;padding:1px 4px';
+        span.textContent = ageStr;
+        nameRow.appendChild(span);
+      }
+    }
+    // Update the age display next to the date input
+    const dobRow = card.querySelector('.dob-age-display');
+    if (dobRow) dobRow.textContent = calcAge(val);
+  }
 }
 
 function calcAge(dob) {

@@ -966,7 +966,7 @@ const STATUS_CONFIG = {
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let store = { statuses:{}, notes:{}, callTimes:{}, callDates:{}, customPDFs:{}, positions:{}, deleted:{}, hudlLinks:{}, callers:{}, whisperNotes:{}, newRecruits:[], textMsgs:{}, textDates:{}, textTimes:{}, textSent:{}, locations:{}, clubLocations:{} };
+let store = { statuses:{}, notes:{}, callTimes:{}, callDates:{}, customPDFs:{}, positions:{}, deleted:{}, hudlLinks:{}, callers:{}, whisperNotes:{}, newRecruits:[], textMsgs:{}, textDates:{}, textTimes:{}, textSent:{}, locations:{}, clubLocations:{}, dobs:{} };
 let activeFilter = 'all';
 let activeRecruit = null;
 let activeTab = 'roster';
@@ -1245,6 +1245,7 @@ function renderList() {
       const txTime = store.textTimes && store.textTimes[r.name] ? store.textTimes[r.name] : '';
       const txSent = store.textSent && store.textSent[r.name];
       const textBadge = (txDate && txTime) ? `<span class="r-text-badge${txSent?' sent':''}">&#128172; ${fmtDate(txDate)} ${txTime}${txSent?' ✓':''}</span>` : '';
+      const dobAge = store.dobs&&store.dobs[r.name] ? `<span style="font-size:9px;color:#3a5a7c;font-weight:600;padding:1px 4px">${calcAge(store.dobs[r.name])}</span>` : '';
       const timeBadge = ct ? `<span class="r-time-badge" id="tbadge_${esc(r.name)}">&#128336; ${ct}</span>` : `<span class="r-time-badge" id="tbadge_${esc(r.name)}" style="display:none"></span>`;
       const dateBadge = cd ? `<span class="r-date-badge">&#128197; ${fmtDate(cd)}</span>` : '';
       const tzBadge = ct ? getTZBadge(r, ct) : '';
@@ -1261,7 +1262,7 @@ function renderList() {
         <div class="r-main" onclick="${bulkMode ? `toggleBulkSelect('${nm}')` : `toggleRecruit('${nm}')`}" style="display:flex;align-items:flex-start;gap:0">
           ${bulkMode ? `<input type="checkbox" class="recruit-checkbox" ${bulkSelected.has(r.name)?'checked':''} onclick="event.stopPropagation();toggleBulkSelect('${nm}')">` : ''}
           <div style="flex:1;min-width:0">
-            <div class="r-name">${r.name}${commitBadge}${timeBadge}${dateBadge}${tzBadge}${callerBadge}${textBadge} ${stBadge}</div>
+            <div class="r-name">${r.name}${commitBadge}${timeBadge}${dateBadge}${tzBadge}${callerBadge}${textBadge}${dobAge} ${stBadge}</div>
             <div class="r-meta"><span class="badge b-pos">${pos2}</span>${hb}${ib}${gb2}</div>
             <div class="r-club">${r.club||''}</div>
           </div>
@@ -1281,6 +1282,11 @@ function renderList() {
           <select class="ctrl-select" onchange="editInterest('${nm}',this.value)">
             ${['','1','2','3','3.5','4','4-5','5'].map(v=>`<option value="${v}" ${getInterest(r)===v||(!v&&!getInterest(r))?'selected':''}>${v||'— Unknown —'}</option>`).join('')}
           </select>
+          <div class="field-label">Date of Birth</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="date" class="ctrl-date" value="${store.dobs&&store.dobs[r.name]||''}" onchange="saveDob('${nm}',this.value)" style="flex:1;color:#c0b8b0">
+            ${store.dobs&&store.dobs[r.name]?`<span style="font-size:11px;color:#5aabff;white-space:nowrap;flex-shrink:0">${calcAge(store.dobs[r.name])}</span>`:''}
+          </div>
           <div class="field-label">Who is Calling</div>
           <select class="caller-select" onchange="setCaller('${nm}',this.value)">${callerOpts}</select>
           <div class="field-label">Position</div>
@@ -1549,7 +1555,28 @@ function setSt(name, val) {
 function setNote(name, val){ store.notes[name] = val; saveStore(); }
 function setPos(name, val) { if(val) store.positions[name]=val; else delete store.positions[name]; saveStore(); reRender(name); }
 function setCDate(name,val){ store.callDates[name]=val; saveStore(); reRender(name); }
-function setCaller(name,val){ store.callers[name]=val; saveStore(); reRender(name); renderLeaderboard(); }
+function saveDob(name, val) {
+  if (!store.dobs) store.dobs = {};
+  store.dobs[name] = val;
+  saveStore();
+  reRender(name);
+}
+
+function calcAge(dob) {
+  if (!dob) return '';
+  const born = new Date(dob);
+  const now = new Date();
+  let age = now.getFullYear() - born.getFullYear();
+  const m = now.getMonth() - born.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < born.getDate())) age--;
+  const months = ((now.getMonth() - born.getMonth() + 12) % 12);
+  // Show upcoming birthday indicator
+  const nextBday = new Date(now.getFullYear(), born.getMonth(), born.getDate());
+  if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1);
+  const daysUntil = Math.ceil((nextBday - now) / 86400000);
+  const bdayStr = daysUntil <= 14 ? ` 🎂 ${daysUntil}d` : '';
+  return `${age} yrs${bdayStr}`;
+}
 
 function saveNameEdit(oldName, newName) {
   newName = (newName||'').trim();

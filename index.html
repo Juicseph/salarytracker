@@ -1230,10 +1230,12 @@ function renderList() {
             </button>
           </div>
           <div class="field-label">&#127757; Map Location (city, state or lat,lon)</div>
-          <div style="display:flex;gap:5px">
-            <input type="text" class="ctrl-link" placeholder="e.g. Miami, FL  or  25.77,-80.19" value="${store.locations&&store.locations[r.name]||''}" oninput="setLocation('${nm}',this.value)" onblur="setLocationFlush('${nm}',this.value)" style="color:#c0d8b0">
-            <button onclick="clearLocation('${nm}')" title="Reset to default" style="padding:5px 8px;background:#0d1a2e;border:1px solid #1e3560;border-radius:4px;color:#3a5a7c;cursor:pointer;font-size:10px;white-space:nowrap;flex-shrink:0">Reset</button>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="text" class="ctrl-link" id="locinput_${idKey}" placeholder="e.g. Miami, FL  or  25.77,-80.19" value="${store.locations&&store.locations[r.name]||''}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLocation('${nm}',this)}" style="color:#c0d8b0;flex:1">
+            <button onclick="saveLocation('${nm}',document.getElementById('locinput_${idKey}'))" style="padding:5px 10px;background:#071428;border:1px solid #1a4a6c;border-radius:4px;color:#5aabff;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0">Save</button>
+            <button onclick="clearLocation('${nm}',document.getElementById('locinput_${idKey}'))" title="Reset to state default" style="padding:5px 8px;background:#0d1a2e;border:1px solid #1e3560;border-radius:4px;color:#3a5a7c;cursor:pointer;font-size:10px;white-space:nowrap;flex-shrink:0">Reset</button>
           </div>
+          <div id="locstatus_${idKey}" style="font-size:9px;color:#3a9a6c;height:12px;margin-top:1px"></div>
           <button class="delete-btn" onclick="deleteRecruit('${nm}')">&#128465; Remove from roster</button>
           ${getMajorRow(r)}
         </div>
@@ -2064,27 +2066,50 @@ function setTextMsg(name, val)  { if(!store.textMsgs) store.textMsgs={}; store.t
 function setTextDate(name, val) { if(!store.textDates) store.textDates={}; store.textDates[name]=val; saveStore(); reRender(name); }
 
 // Location overrides for map
+function saveLocation(name, inputEl) {
+  const val = (inputEl ? inputEl.value : '').trim();
+  if (!store.locations) store.locations = {};
+  store.locations[name] = val;
+  saveStore();
+  const idKey = esc(name);
+  const status = document.getElementById('locstatus_' + idKey);
+  if (status) {
+    status.textContent = val ? '✓ Saved · map will update' : '✓ Cleared · using state default';
+    setTimeout(() => { if (status) status.textContent = ''; }, 2500);
+  }
+  if (activeTab === 'map') {
+    if (val && _geocodeCache && _geocodeCache[val]) delete _geocodeCache[val];
+    renderMap();
+  }
+}
+
 function setLocation(name, val) {
-  // Save on every keystroke — no re-render while typing
   if (!store.locations) store.locations = {};
   store.locations[name] = val.trim();
   saveStore();
 }
+
 function setLocationFlush(name, val) {
-  // On blur: save, re-render sidebar badge, refresh map
   if (!store.locations) store.locations = {};
-  const trimmed = val.trim();
-  store.locations[name] = trimmed;
+  store.locations[name] = val.trim();
   saveStore();
   if (activeTab === 'map') renderMap();
 }
-function clearLocation(name) {
+
+function clearLocation(name, inputEl) {
   if (!store.locations) store.locations = {};
   delete store.locations[name];
   saveStore();
-  reRender(name);
+  if (inputEl) inputEl.value = '';
+  const idKey = esc(name);
+  const status = document.getElementById('locstatus_' + idKey);
+  if (status) {
+    status.textContent = '✓ Reset to state default';
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  }
   if (activeTab === 'map') renderMap();
 }
+
 function setTextTime(name, input) {
   // Just save the value — no re-render, no badge update while typing
   if(!store.textTimes) store.textTimes={};
